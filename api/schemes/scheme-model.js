@@ -1,4 +1,6 @@
-function find() { // EXERCISE A
+const db = require("../../data/db-config")
+
+async function find() { // EXERCISE A
   /*
     1A- Study the SQL query below running it in SQLite Studio against `data/schemes.db3`.
     What happens if we change from a LEFT join to an INNER join?
@@ -15,9 +17,17 @@ function find() { // EXERCISE A
     2A- When you have a grasp on the query go ahead and build it in Knex.
     Return from this function the resulting dataset.
   */
+
+    const rows = await db('schemes as sc')
+      .leftJoin('steps as st', 'sc.scheme_id', 'st.scheme_id')
+      .groupBy('sc.scheme_id')
+      .select('sc.scheme_id', 'scheme_name')
+      .count('st.step_id as number_of_steps')
+      
+      return rows
 }
 
-function findById(scheme_id) { // EXERCISE B
+async function findById(scheme_id) { // EXERCISE B
   /*
     1B- Study the SQL query below running it in SQLite Studio against `data/schemes.db3`:
 
@@ -31,28 +41,38 @@ function findById(scheme_id) { // EXERCISE B
       ORDER BY st.step_number ASC;
 
     2B- When you have a grasp on the query go ahead and build it in Knex
-    making it parametric: instead of a literal `1` you should use `scheme_id`.
+    making it parametric: instead of a literal `1` you should use `scheme_id`. */
 
-    3B- Test in Postman and see that the resulting data does not look like a scheme,
+  const rows = await db('schemes as sc')
+    .leftJoin('steps as st', 'sc.scheme_id', 'st.scheme_id')
+    .select('sc.scheme_name','step_id', 'st.scheme_id', 'step_number', 'instructions')
+    .where('sc.scheme_id', scheme_id)
+    .orderBy('st.step_number')
+    
+    // console.log(rows)
+
+    const result ={steps: []}
+    result.scheme_id = parseInt(scheme_id)
+    result.scheme_name = rows[0].scheme_name
+
+    if (rows[0].step_id === null) {
+      result.steps = []
+    } else {
+      rows.forEach(row => {
+        result.steps.push({
+          step_id: row.step_id,
+          step_number: row.step_number,
+          instructions: row.instructions
+        })
+      
+    })
+  }
+    console.log(result)
+    return result
+  /*  3B- Test in Postman and see that the resulting data does not look like a scheme,
     but more like an array of steps each including scheme information:
 
-      [
-        {
-          "scheme_id": 1,
-          "scheme_name": "World Domination",
-          "step_id": 2,
-          "step_number": 1,
-          "instructions": "solve prime number theory"
-        },
-        {
-          "scheme_id": 1,
-          "scheme_name": "World Domination",
-          "step_id": 1,
-          "step_number": 2,
-          "instructions": "crack cyber security"
-        },
-        // etc
-      ]
+     
 
     4B- Using the array obtained and vanilla JavaScript, create an object with
     the structure below, for the case _when steps exist_ for a given `scheme_id`:
@@ -83,9 +103,10 @@ function findById(scheme_id) { // EXERCISE B
         "steps": []
       }
   */
+
 }
 
-function findSteps(scheme_id) { // EXERCISE C
+async function findSteps(scheme_id) { // EXERCISE C
   /*
     1C- Build a query in Knex that returns the following data.
     The steps should be sorted by step_number, and the array
@@ -106,12 +127,40 @@ function findSteps(scheme_id) { // EXERCISE C
         }
       ]
   */
+  const rows = await db('schemes as sc')
+    .leftJoin('steps as st', 'sc.scheme_id', 'st.scheme_id')
+    .select('sc.scheme_name','step_id', 'st.scheme_id', 'step_number', 'instructions')
+    .where('sc.scheme_id', scheme_id)
+    .orderBy('st.step_number')
+
+  console.log(rows)
+  
+  if (rows[0].step_id === null) {
+    return []
+  } else{
+    const result = []
+
+    rows.forEach(row => {
+      result.push({
+        step_id: row.step_id,
+        step_number: row.step_number,
+        instructions: row.instructions,
+        scheme_name: row.scheme_name
+      })
+    })
+    return result
+  }
 }
 
 function add(scheme) { // EXERCISE D
   /*
     1D- This function creates a new scheme and resolves to _the newly created scheme_.
   */
+  return db('schemes')
+    .insert(scheme)
+    .then(([id]) => {
+      return findById(id)
+    })
 }
 
 function addStep(scheme_id, step) { // EXERCISE E
@@ -120,6 +169,12 @@ function addStep(scheme_id, step) { // EXERCISE E
     and resolves to _all the steps_ belonging to the given `scheme_id`,
     including the newly created one.
   */
+  return db('steps')
+    .insert(step)
+    
+    .then(stuff => {
+      return findSteps(scheme_id)
+    })
 }
 
 module.exports = {
